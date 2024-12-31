@@ -9,6 +9,9 @@ import {
   SelectValue,
 } from "../ui/select";
 import { Search, Filter } from "lucide-react";
+import { searchPatients } from "@/lib/services/patients";
+import { useToast } from "../ui/use-toast";
+import { useDebounce } from "@/lib/hooks/use-debounce";
 
 interface SearchFilter {
   id: string;
@@ -23,6 +26,7 @@ interface SearchFilter {
 interface SearchBarProps {
   onSearch?: (query: string) => void;
   onFilter?: (filters: Record<string, string>) => void;
+  onResults?: (patients: any[]) => void;
   filters?: SearchFilter[];
 }
 
@@ -39,17 +43,6 @@ const defaultFilters: SearchFilter[] = [
     ],
   },
   {
-    id: "2",
-    label: "Raça",
-    value: "breed",
-    options: [
-      { value: "labrador", label: "Labrador" },
-      { value: "poodle", label: "Poodle" },
-      { value: "siamese", label: "Siamês" },
-      { value: "persian", label: "Persa" },
-    ],
-  },
-  {
     id: "3",
     label: "Idade",
     value: "age",
@@ -63,13 +56,44 @@ const defaultFilters: SearchFilter[] = [
 ];
 
 const SearchBar = ({
-  onSearch = () => console.log("Searching..."),
-  onFilter = () => console.log("Filtering..."),
+  onSearch,
+  onFilter,
+  onResults,
   filters = defaultFilters,
 }: SearchBarProps) => {
+  const [searchQuery, setSearchQuery] = React.useState("");
   const [selectedFilters, setSelectedFilters] = React.useState<
     Record<string, string>
   >({});
+  const [isLoading, setIsLoading] = React.useState(false);
+  const { toast } = useToast();
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+
+  const handleSearch = async (
+    query: string,
+    filters: Record<string, string>,
+  ) => {
+    setIsLoading(true);
+    try {
+      const results = await searchPatients(query, filters);
+      if (onResults) {
+        onResults(results);
+      }
+    } catch (error) {
+      console.error("Error searching patients:", error);
+      toast({
+        title: "Erro",
+        description: "Erro ao buscar pacientes. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    handleSearch(debouncedSearchQuery, selectedFilters);
+  }, [debouncedSearchQuery, selectedFilters]);
 
   const handleFilterChange = (filterValue: string, selectedValue: string) => {
     const newFilters = {
@@ -77,7 +101,19 @@ const SearchBar = ({
       [filterValue]: selectedValue,
     };
     setSelectedFilters(newFilters);
-    onFilter(newFilters);
+    if (onFilter) {
+      onFilter(newFilters);
+    }
+  };
+
+  const resetFilters = () => {
+    const defaultFilterValues = Object.fromEntries(
+      filters.map((f) => [f.value, "all"]),
+    );
+    setSelectedFilters(defaultFilterValues);
+    if (onFilter) {
+      onFilter(defaultFilterValues);
+    }
   };
 
   return (
@@ -88,17 +124,27 @@ const SearchBar = ({
             type="text"
             placeholder="Buscar paciente..."
             className="pl-10"
-            onChange={(e) => onSearch(e.target.value)}
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              if (onSearch) {
+                onSearch(e.target.value);
+              }
+            }}
+            disabled={isLoading}
           />
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+          <Search
+            className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 ${isLoading ? "text-gray-300" : "text-gray-400"}`}
+          />
         </div>
 
         <div className="flex gap-2">
           {filters.map((filter) => (
             <Select
               key={filter.id}
+              value={selectedFilters[filter.value] || "all"}
               onValueChange={(value) => handleFilterChange(filter.value, value)}
-              value={selectedFilters[filter.value]}
+              disabled={isLoading}
             >
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder={filter.label} />
@@ -117,12 +163,8 @@ const SearchBar = ({
           <Button
             variant="outline"
             size="icon"
-            onClick={() => {
-              setSelectedFilters(
-                Object.fromEntries(filters.map((f) => [f.value, "all"])),
-              );
-              onFilter({});
-            }}
+            onClick={resetFilters}
+            disabled={isLoading}
           >
             <Filter className="h-4 w-4" />
           </Button>

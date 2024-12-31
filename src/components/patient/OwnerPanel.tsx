@@ -2,6 +2,15 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Plus, Syringe, FileText } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import MedicalRecordForm from "./MedicalRecordForm";
+import type { MedicalRecord } from "@/lib/services/medical-records";
 
 interface OwnerInfo {
   name: string;
@@ -12,9 +21,8 @@ interface OwnerInfo {
 
 interface OwnerPanelProps {
   ownerInfo?: OwnerInfo;
-  onNewConsultation?: () => void;
-  onAddVaccine?: () => void;
-  onGenerateDocument?: () => void;
+  patientId: string;
+  onRecordCreated?: (record: MedicalRecord) => void;
 }
 
 const defaultOwnerInfo: OwnerInfo = {
@@ -26,10 +34,23 @@ const defaultOwnerInfo: OwnerInfo = {
 
 const OwnerPanel = ({
   ownerInfo = defaultOwnerInfo,
-  onNewConsultation = () => console.log("New consultation"),
-  onAddVaccine = () => console.log("Add vaccine"),
-  onGenerateDocument = () => console.log("Generate document"),
+  patientId,
+  onRecordCreated,
 }: OwnerPanelProps) => {
+  const [isNewConsultationOpen, setIsNewConsultationOpen] =
+    React.useState(false);
+  const [isNewVaccineOpen, setIsNewVaccineOpen] = React.useState(false);
+  const [isNewProcedureOpen, setIsNewProcedureOpen] = React.useState(false);
+
+  const handleRecordCreated = (record: MedicalRecord) => {
+    if (onRecordCreated) {
+      onRecordCreated(record);
+    }
+    setIsNewConsultationOpen(false);
+    setIsNewVaccineOpen(false);
+    setIsNewProcedureOpen(false);
+  };
+
   return (
     <Card className="w-[300px] h-full p-4 bg-white">
       <div className="space-y-6">
@@ -52,32 +73,71 @@ const OwnerPanel = ({
         <div className="space-y-3">
           <h3 className="text-lg font-medium text-gray-900">Ações</h3>
           <div className="space-y-2">
-            <Button
-              className="w-full justify-start"
-              variant="default"
-              onClick={onNewConsultation}
+            <Dialog
+              open={isNewConsultationOpen}
+              onOpenChange={setIsNewConsultationOpen}
             >
-              <Plus className="mr-2 h-4 w-4" />
-              Nova Consulta
-            </Button>
+              <DialogTrigger asChild>
+                <Button className="w-full justify-start" variant="default">
+                  <Plus className="mr-2 h-4 w-4" />
+                  Nova Consulta
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Nova Consulta</DialogTitle>
+                </DialogHeader>
+                <MedicalRecordForm
+                  patientId={patientId}
+                  initialType="consultation"
+                  onSubmit={handleRecordCreated}
+                  onCancel={() => setIsNewConsultationOpen(false)}
+                />
+              </DialogContent>
+            </Dialog>
 
-            <Button
-              className="w-full justify-start"
-              variant="secondary"
-              onClick={onAddVaccine}
-            >
-              <Syringe className="mr-2 h-4 w-4" />
-              Adicionar Vacina
-            </Button>
+            <Dialog open={isNewVaccineOpen} onOpenChange={setIsNewVaccineOpen}>
+              <DialogTrigger asChild>
+                <Button className="w-full justify-start" variant="secondary">
+                  <Syringe className="mr-2 h-4 w-4" />
+                  Adicionar Vacina
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Nova Vacina</DialogTitle>
+                </DialogHeader>
+                <MedicalRecordForm
+                  patientId={patientId}
+                  initialType="vaccine"
+                  onSubmit={handleRecordCreated}
+                  onCancel={() => setIsNewVaccineOpen(false)}
+                />
+              </DialogContent>
+            </Dialog>
 
-            <Button
-              className="w-full justify-start"
-              variant="outline"
-              onClick={onGenerateDocument}
+            <Dialog
+              open={isNewProcedureOpen}
+              onOpenChange={setIsNewProcedureOpen}
             >
-              <FileText className="mr-2 h-4 w-4" />
-              Gerar Documentos
-            </Button>
+              <DialogTrigger asChild>
+                <Button className="w-full justify-start" variant="outline">
+                  <FileText className="mr-2 h-4 w-4" />
+                  Novo Procedimento
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Novo Procedimento</DialogTitle>
+                </DialogHeader>
+                <MedicalRecordForm
+                  patientId={patientId}
+                  initialType="procedure"
+                  onSubmit={handleRecordCreated}
+                  onCancel={() => setIsNewProcedureOpen(false)}
+                />
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
       </div>

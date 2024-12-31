@@ -1,50 +1,20 @@
 import React from "react";
 import { Card } from "../ui/card";
 import { Badge } from "../ui/badge";
-import { Separator } from "../ui/separator";
 import { CalendarDays, Syringe, Stethoscope } from "lucide-react";
-
-interface TimelineEvent {
-  id: string;
-  date: string;
-  type: "consultation" | "vaccine" | "procedure";
-  title: string;
-  description: string;
-  professional: string;
-}
+import {
+  getMedicalRecords,
+  type MedicalRecord,
+} from "@/lib/services/medical-records";
+import { useToast } from "../ui/use-toast";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 interface MedicalTimelineProps {
-  events?: TimelineEvent[];
+  patientId: string;
 }
 
-const defaultEvents: TimelineEvent[] = [
-  {
-    id: "1",
-    date: "2024-01-15",
-    type: "consultation",
-    title: "Consulta de Rotina",
-    description: "Checkup geral com exame físico completo",
-    professional: "Dra. Maria Silva",
-  },
-  {
-    id: "2",
-    date: "2024-01-01",
-    type: "vaccine",
-    title: "Vacinação V10",
-    description: "Dose anual da vacina V10",
-    professional: "Dr. João Santos",
-  },
-  {
-    id: "3",
-    date: "2023-12-20",
-    type: "procedure",
-    title: "Limpeza Dentária",
-    description: "Procedimento de profilaxia dentária sob anestesia",
-    professional: "Dra. Ana Costa",
-  },
-];
-
-const getEventIcon = (type: TimelineEvent["type"]) => {
+const getEventIcon = (type: MedicalRecord["type"]) => {
   switch (type) {
     case "consultation":
       return <Stethoscope className="h-5 w-5" />;
@@ -55,7 +25,7 @@ const getEventIcon = (type: TimelineEvent["type"]) => {
   }
 };
 
-const getEventColor = (type: TimelineEvent["type"]) => {
+const getEventColor = (type: MedicalRecord["type"]) => {
   switch (type) {
     case "consultation":
       return "bg-blue-100 text-blue-800";
@@ -66,37 +36,94 @@ const getEventColor = (type: TimelineEvent["type"]) => {
   }
 };
 
-const MedicalTimeline = ({ events = defaultEvents }: MedicalTimelineProps) => {
+const MedicalTimeline = ({ patientId }: MedicalTimelineProps) => {
+  const [records, setRecords] = React.useState<MedicalRecord[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const { toast } = useToast();
+
+  React.useEffect(() => {
+    const loadMedicalRecords = async () => {
+      try {
+        const data = await getMedicalRecords(patientId);
+        setRecords(data);
+      } catch (error) {
+        console.error("Error loading medical records:", error);
+        toast({
+          title: "Erro",
+          description: "Erro ao carregar histórico médico. Tente novamente.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (patientId) {
+      loadMedicalRecords();
+    }
+  }, [patientId, toast]);
+
+  if (isLoading) {
+    return (
+      <div className="w-full bg-white p-6 rounded-lg shadow space-y-6">
+        <h2 className="text-2xl font-semibold mb-6">Histórico Médico</h2>
+        {Array.from({ length: 3 }).map((_, index) => (
+          <Card key={index} className="p-4 animate-pulse">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 bg-gray-200 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 bg-gray-200 rounded w-1/4" />
+                <div className="h-3 bg-gray-200 rounded w-1/3" />
+                <div className="h-3 bg-gray-200 rounded w-1/2" />
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+    );
+  }
+
+  if (!records.length) {
+    return (
+      <div className="w-full bg-white p-6 rounded-lg shadow">
+        <h2 className="text-2xl font-semibold mb-6">Histórico Médico</h2>
+        <Card className="p-6 text-center text-gray-500">
+          Nenhum registro médico encontrado
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full bg-white p-6 rounded-lg shadow">
       <h2 className="text-2xl font-semibold mb-6">Histórico Médico</h2>
       <div className="space-y-6">
-        {events.map((event, index) => (
-          <div key={event.id} className="relative">
+        {records.map((record, index) => (
+          <div key={record.id} className="relative">
             <Card className="p-4">
               <div className="flex items-start gap-4">
                 <div
-                  className={`p-2 rounded-full ${getEventColor(event.type)}`}
+                  className={`p-2 rounded-full ${getEventColor(record.type)}`}
                 >
-                  {getEventIcon(event.type)}
+                  {getEventIcon(record.type)}
                 </div>
                 <div className="flex-1">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="font-medium text-lg">{event.title}</h3>
+                      <h3 className="font-medium text-lg">{record.title}</h3>
                       <p className="text-sm text-gray-500">
-                        {event.professional}
+                        {record.professional}
                       </p>
                     </div>
                     <Badge variant="outline">
-                      {new Date(event.date).toLocaleDateString("pt-BR")}
+                      {format(new Date(record.date), "PPp", { locale: ptBR })}
                     </Badge>
                   </div>
-                  <p className="mt-2 text-gray-600">{event.description}</p>
+                  <p className="mt-2 text-gray-600">{record.description}</p>
                 </div>
               </div>
             </Card>
-            {index < events.length - 1 && (
+            {index < records.length - 1 && (
               <div className="absolute left-7 top-[calc(100%+1px)] bottom-0 w-px bg-gray-200 h-6" />
             )}
           </div>
